@@ -14,8 +14,6 @@ printf("Mem at start of test (real): %d (%d)\n", memory_get_usage(), memory_get_
 for ($i = 0; $i < 100; ++$i) {
     //printf("Mem at start of loop (real): %d (%d)\n", memory_get_usage(), memory_get_usage(true));
 
-    \Lua::reset();
-
     $lua = new Lua();
 
     $lua->registerCallback('foo', function () {

@@ -30,6 +30,7 @@ RUN apk add \
     autoconf \
     g++ \
     make \
+    gdb \
     lua-dev
 
 COPY ./ /src
@@ -48,4 +49,4 @@ RUN make install
 
 RUN echo "extension=lua.so" > /usr/local/lib/php.ini
 
-CMD php docker/test.php
+CMD php -m
