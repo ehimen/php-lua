@@ -713,6 +713,19 @@ PHP_METHOD(lua, assign) {
 }
 /* }}} */
 
+/** {{{ proto proto Lua::clearRegisteredCallbacks()
+*/
+PHP_METHOD(lua, clearRegisteredCallbacks) {
+	zval *callbacks = zend_read_static_property(lua_ce, ZEND_STRL("_callbacks"), 1);
+
+ 	if (callbacks) {
+ 		zval_ptr_dtor(callbacks);
+		array_init(callbacks);
+ 	}
+}
+
+/* }}} */
+
 /** {{{ proto Lua::registerCallback(string $name, mix $value)
 */
 PHP_METHOD(lua, registerCallback) {
@@ -774,13 +787,14 @@ PHP_METHOD(lua, __construct) {
  *
  */
 zend_function_entry lua_class_methods[] = {
-	PHP_ME(lua, __construct,		NULL,  					ZEND_ACC_PUBLIC|ZEND_ACC_CTOR)
-	PHP_ME(lua, eval,          		arginfo_lua_eval,  		ZEND_ACC_PUBLIC)
-	PHP_ME(lua, include,			arginfo_lua_include, 	ZEND_ACC_PUBLIC)
-	PHP_ME(lua, call,				arginfo_lua_call,  		ZEND_ACC_PUBLIC)
-	PHP_ME(lua, assign,				arginfo_lua_assign,		ZEND_ACC_PUBLIC)
-	PHP_ME(lua, getVersion,			NULL, 					ZEND_ACC_PUBLIC|ZEND_ACC_ALLOW_STATIC)
-	PHP_ME(lua, registerCallback,	arginfo_lua_register, 	ZEND_ACC_PUBLIC)
+	PHP_ME(lua, __construct,		        NULL,  					ZEND_ACC_PUBLIC|ZEND_ACC_CTOR)
+	PHP_ME(lua, eval,          		        arginfo_lua_eval,  		ZEND_ACC_PUBLIC)
+	PHP_ME(lua, include,			        arginfo_lua_include, 	ZEND_ACC_PUBLIC)
+	PHP_ME(lua, call,				        arginfo_lua_call,  		ZEND_ACC_PUBLIC)
+	PHP_ME(lua, assign,				        arginfo_lua_assign,		ZEND_ACC_PUBLIC)
+	PHP_ME(lua, getVersion,			        NULL, 					ZEND_ACC_PUBLIC|ZEND_ACC_ALLOW_STATIC)
+	PHP_ME(lua, registerCallback,	        arginfo_lua_register, 	ZEND_ACC_PUBLIC)
+	PHP_ME(lua, clearRegisteredCallbacks,	NULL, 					ZEND_ACC_PUBLIC|ZEND_ACC_ALLOW_STATIC)
 	PHP_MALIAS(lua, __call, call, 	arginfo_lua_call,		ZEND_ACC_PUBLIC)
 	PHP_FE_END
 };
