@@ -271,7 +271,6 @@ static void php_lua_write_property(zval *object, zval *member, zval *value, void
 static int php_lua_call_callback(lua_State *L) {
 	zval retval;
 	zval *func		 = NULL;
-	zval *callbacks	 = NULL;
 
 	func = (zval*)lua_topointer(L, lua_upvalueindex(1));
 
@@ -711,7 +710,6 @@ PHP_METHOD(lua, assign) {
 */
 PHP_METHOD(lua, registerCallback) {
 	zend_string *name;
-	size_t len;
 	zval *func;
 	lua_State *L;
     php_lua_object *lua_obj;
@@ -719,6 +717,11 @@ PHP_METHOD(lua, registerCallback) {
 	if (zend_parse_parameters(ZEND_NUM_ARGS(), "Sz", &name, &func) == FAILURE) {
 		return;
 	}
+
+	// TODO: A bug here where closure stored in LUA upvalue alongside
+	// TODO: closure is changing after subsequent calls to zend_parse_parameters()
+	// TODO: in other methods. Don't know what's going on :(
+    //ZVAL_ZVAL(func, closure, 1, 0);
 
     lua_obj = php_lua_obj_from_obj(Z_OBJ_P(getThis()));
 
