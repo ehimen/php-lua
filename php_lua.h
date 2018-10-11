@@ -53,6 +53,7 @@ extern zend_module_entry lua_module_entry;
 struct _php_lua_object {
   lua_State *L;
   zend_object obj;
+  HashTable *callbacks;
 };
 
 typedef struct _php_lua_object php_lua_object;

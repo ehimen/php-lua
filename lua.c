@@ -180,6 +180,15 @@ static void php_lua_dtor_object(zend_object *object) /* {{{ */ {
 static void php_lua_free_object(zend_object *object) /* {{{ */ {
 	php_lua_object *lua_obj = php_lua_obj_from_obj(object);
 
+	zval *val;
+
+	ZEND_HASH_FOREACH_VAL(lua_obj->callbacks, val) {
+        zval_ptr_dtor(val);
+	} ZEND_HASH_FOREACH_END();
+
+	zend_hash_destroy(lua_obj->callbacks);
+	FREE_HASHTABLE(lua_obj->callbacks);
+
 	if (lua_obj->L) {
 		lua_close(lua_obj->L);
 	}
@@ -199,6 +208,9 @@ zend_object *php_lua_create_object(zend_class_entry *ce)
 
 	intern = ecalloc(1, sizeof(php_lua_object) + zend_object_properties_size(ce));
 	intern->L = L;
+
+	ALLOC_HASHTABLE(intern->callbacks);
+	zend_hash_init(intern->callbacks, 0, NULL, NULL, 0);
 
 	zend_object_std_init(&intern->obj, ce);
 	object_properties_init(&intern->obj, ce);
@@ -257,20 +269,10 @@ static void php_lua_write_property(zval *object, zval *member, zval *value, void
 /** {{{  static int php_lua_call_callback(lua_State *L)
 */
 static int php_lua_call_callback(lua_State *L) {
-	int  order		 = 0;
 	zval retval;
 	zval *func		 = NULL;
-	zval *callbacks	 = NULL;
 
-	order = lua_tonumber(L, lua_upvalueindex(1));
-
-	callbacks = zend_read_static_property(lua_ce, ZEND_STRL("_callbacks"), 1);
-	
-	if (ZVAL_IS_NULL(callbacks)) {
-		return 0;
-	}
-	
-	func = zend_hash_index_find(Z_ARRVAL_P(callbacks), order);
+	func = (zval*)lua_topointer(L, lua_upvalueindex(1));
 
 	if (!zend_is_callable(func, 0, NULL)) {
 		return 0;
@@ -410,19 +412,8 @@ try_again:
 		case IS_ARRAY:
 			{
 				if (zend_is_callable(val, 0, NULL)) {
-					zval *callbacks;
-
-					callbacks = zend_read_static_property(lua_ce, ZEND_STRL("_callbacks"), 1);
-
-					if (ZVAL_IS_NULL(callbacks)) {
-						array_init(callbacks);
-					}
-
-					lua_pushnumber(L, zend_hash_num_elements(Z_ARRVAL_P(callbacks)));
+					lua_pushlightuserdata(L, val);
 					lua_pushcclosure(L, php_lua_call_callback, 1);
-
-					zval_add_ref(val);
-					add_next_index_zval(callbacks, val);
 				} else {
 					zval *v;
 					ulong longkey;
@@ -713,38 +704,44 @@ PHP_METHOD(lua, assign) {
 }
 /* }}} */
 
+/* }}} */
+
 /** {{{ proto Lua::registerCallback(string $name, mix $value)
 */
 PHP_METHOD(lua, registerCallback) {
-	char *name;
-	size_t len;
+	zend_string *name;
 	zval *func;
 	lua_State *L;
-	zval* callbacks;
+    php_lua_object *lua_obj;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS(),"sz", &name, &len, &func) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "Sz", &name, &func) == FAILURE) {
 		return;
 	}
 
+	// TODO: A bug here where closure stored in LUA upvalue alongside
+	// TODO: closure is changing after subsequent calls to zend_parse_parameters()
+	// TODO: in other methods. Don't know what's going on :(
+    //ZVAL_ZVAL(func, closure, 1, 0);
+
+    lua_obj = php_lua_obj_from_obj(Z_OBJ_P(getThis()));
+
 	L = (Z_LUAVAL_P(getThis()))->L;
 
-	callbacks = zend_read_static_property(lua_ce, ZEND_STRL("_callbacks"), 1);
-
-	if (ZVAL_IS_NULL(callbacks)) {
-		array_init(callbacks);
-	}
-
 	if (zend_is_callable(func, 0, NULL)) {
-		lua_pushnumber(L, zend_hash_num_elements(Z_ARRVAL_P(callbacks)));
+		lua_pushlightuserdata(L, func);
 		lua_pushcclosure(L, php_lua_call_callback, 1);
-		lua_setglobal(L, name);
+		lua_setglobal(L, name->val);
 	} else {
 		zend_throw_exception_ex(lua_exception_ce, 0, "invalid php callback");
 		RETURN_FALSE;
 	}
 
-	zval_add_ref(func);
-	add_next_index_zval(callbacks, func);
+	// Increment ref count on our func zval to ensure it hangs around
+	// for future access as an upvalue in php_lua_call_callback.
+    Z_ADDREF_P(func);
+
+	// Make a note so we can clear it up later.
+	zend_hash_update(lua_obj->callbacks, name, func);
 
 	RETURN_ZVAL(getThis(), 1, 0);
 }
@@ -769,6 +766,7 @@ PHP_METHOD(lua, __construct) {
 	}
 }
 /* }}} */
+
 
 /* {{{ lua_class_methods[]
  *
@@ -818,7 +816,6 @@ PHP_MINIT_FUNCTION(lua) {
 
 	lua_ce->ce_flags |= ZEND_ACC_FINAL;
 
-	zend_declare_property_null(lua_ce, ZEND_STRL("_callbacks"), ZEND_ACC_STATIC|ZEND_ACC_PRIVATE);
 	zend_declare_class_constant_string(lua_ce, ZEND_STRL("LUA_VERSION"), LUA_RELEASE);
 
 	php_lua_closure_register();
