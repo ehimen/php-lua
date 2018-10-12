@@ -32,6 +32,10 @@ zend_class_entry 	*lua_ce;
 zend_class_entry    *lua_exception_ce;
 static zend_object_handlers lua_object_handlers;
 
+
+
+static HashTable *callbacks;
+
 /** {{{ ARG_INFO
  *
  */
@@ -189,6 +193,13 @@ static void php_lua_free_object(zend_object *object) /* {{{ */ {
 	zend_hash_destroy(lua_obj->callbacks);
 	FREE_HASHTABLE(lua_obj->callbacks);
 
+    ZEND_HASH_FOREACH_VAL(callbacks, val) {
+        zval_ptr_dtor(val);
+    } ZEND_HASH_FOREACH_END();
+
+    zend_hash_destroy(callbacks);
+    FREE_HASHTABLE(callbacks);
+
 	if (lua_obj->L) {
 		lua_close(lua_obj->L);
 	}
@@ -216,6 +227,9 @@ zend_object *php_lua_create_object(zend_class_entry *ce)
 	object_properties_init(&intern->obj, ce);
 
 	intern->obj.handlers = &lua_object_handlers;
+
+    ALLOC_HASHTABLE(callbacks);
+    zend_hash_init(callbacks, 0, NULL, NULL, 0);
 	
 	return &intern->obj;
 }
@@ -412,7 +426,16 @@ try_again:
 		case IS_ARRAY:
 			{
 				if (zend_is_callable(val, 0, NULL)) {
-					lua_pushlightuserdata(L, val);
+				    zval *func;
+				    long nextFree;
+
+                    Z_TRY_ADDREF_P(val);
+
+                    zend_hash_next_index_insert(callbacks, val);
+                    nextFree = zend_hash_next_free_element(callbacks);
+                    func = zend_hash_index_find(callbacks, nextFree - 1);
+
+					lua_pushlightuserdata(L, func);
 					lua_pushcclosure(L, php_lua_call_callback, 1);
 				} else {
 					zval *v;
