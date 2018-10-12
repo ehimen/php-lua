@@ -203,6 +203,8 @@ static void php_lua_free_object(zend_object *object) /* {{{ */ {
 	if (lua_obj->L) {
 		lua_close(lua_obj->L);
 	}
+
+	efree(lua_obj);
 }
 /* }}} */
 
