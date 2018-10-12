@@ -54,6 +54,7 @@ struct _php_lua_object {
   lua_State *L;
   zend_object obj;
   HashTable *callbacks;
+  HashTable *anonCallbacks;
 };
 
 typedef struct _php_lua_object php_lua_object;
@@ -66,7 +67,7 @@ static inline php_lua_object *php_lua_obj_from_obj(zend_object *obj) {
 #define Z_LUAVAL_P(obj) php_lua_obj_from_obj(Z_OBJ_P((obj)))
 
 zval *php_lua_get_zval_from_lua(lua_State *L, int index, zval *lua_obj, zval *rv);
-int php_lua_send_zval_to_lua(lua_State *L, zval *val);
+int php_lua_send_zval_to_lua(lua_State *L, zval *val, php_lua_object *lua_obj);
 
 PHP_MINIT_FUNCTION(lua);
 PHP_MSHUTDOWN_FUNCTION(lua);
