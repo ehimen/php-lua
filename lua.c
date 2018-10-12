@@ -270,9 +270,21 @@ static void php_lua_write_property(zval *object, zval *member, zval *value, void
 */
 static int php_lua_call_callback(lua_State *L) {
 	zval retval;
-	zval *func		 = NULL;
+	zval *func = NULL;
+    HashTable *callbacks;
+    size_t *len;
+    zend_string *name;
 
-	func = (zval*)lua_topointer(L, lua_upvalueindex(1));
+	name = (zend_string*)lua_topointer(L, lua_upvalueindex(2));
+
+	if (name) {
+        callbacks = (HashTable*)lua_topointer(L, lua_upvalueindex(1));
+        func      = zend_hash_find(callbacks, name);
+        php_printf("Using registered callback");
+	} else {
+	    php_printf("Using closure");
+	    func = (zval*)lua_topointer(L, lua_upvalueindex(1));
+	}
 
 	if (!zend_is_callable(func, 0, NULL)) {
 		return 0;
@@ -718,18 +730,14 @@ PHP_METHOD(lua, registerCallback) {
 		return;
 	}
 
-	// TODO: A bug here where closure stored in LUA upvalue alongside
-	// TODO: closure is changing after subsequent calls to zend_parse_parameters()
-	// TODO: in other methods. Don't know what's going on :(
-    //ZVAL_ZVAL(func, closure, 1, 0);
-
     lua_obj = php_lua_obj_from_obj(Z_OBJ_P(getThis()));
 
 	L = (Z_LUAVAL_P(getThis()))->L;
 
 	if (zend_is_callable(func, 0, NULL)) {
-		lua_pushlightuserdata(L, func);
-		lua_pushcclosure(L, php_lua_call_callback, 1);
+		lua_pushlightuserdata(L, lua_obj->callbacks);
+		lua_pushlightuserdata(L, name);
+		lua_pushcclosure(L, php_lua_call_callback, 2);
 		lua_setglobal(L, name->val);
 	} else {
 		zend_throw_exception_ex(lua_exception_ce, 0, "invalid php callback");
@@ -738,7 +746,7 @@ PHP_METHOD(lua, registerCallback) {
 
 	// Increment ref count on our func zval to ensure it hangs around
 	// for future access as an upvalue in php_lua_call_callback.
-    Z_ADDREF_P(func);
+    Z_TRY_ADDREF_P(func);
 
 	// Make a note so we can clear it up later.
 	zend_hash_update(lua_obj->callbacks, name, func);
