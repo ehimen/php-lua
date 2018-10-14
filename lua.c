@@ -170,6 +170,21 @@ static void * php_lua_alloc_function(void *ud, void *ptr, size_t osize, size_t n
 }
 /* }}} */
 
+static void php_lua_dtor_object(zend_object *object) /* {{{ */ {
+	php_lua_object *lua_obj = php_lua_obj_from_obj(object);
+
+	zval *val;
+
+	ZEND_HASH_FOREACH_VAL(lua_obj->callbacks, val) {
+		zval_ptr_dtor(val);
+	} ZEND_HASH_FOREACH_END();
+
+	ZEND_HASH_FOREACH_VAL(lua_obj->anonCallbacks, val) {
+		zval_ptr_dtor(val);
+	} ZEND_HASH_FOREACH_END();
+}
+/* }}} */
+
 static void php_lua_free_object(zend_object *object) /* {{{ */ {
 	php_lua_object *lua_obj = php_lua_obj_from_obj(object);
 
@@ -203,10 +218,10 @@ zend_object *php_lua_create_object(zend_class_entry *ce)
 	intern->L = L;
 
 	ALLOC_HASHTABLE(intern->callbacks);
-	zend_hash_init(intern->callbacks, 0, NULL, ZVAL_PTR_DTOR, 0);
+	zend_hash_init(intern->callbacks, 0, NULL, NULL, 0);
 
 	ALLOC_HASHTABLE(intern->anonCallbacks);
-	zend_hash_init(intern->anonCallbacks, 0, NULL, ZVAL_PTR_DTOR, 0);
+	zend_hash_init(intern->anonCallbacks, 0, NULL, NULL, 0);
 
 	zend_object_std_init(&intern->obj, ce);
 	object_properties_init(&intern->obj, ce);
@@ -824,6 +839,7 @@ PHP_MINIT_FUNCTION(lua) {
 	lua_ce->create_object = php_lua_create_object;
 	memcpy(&lua_object_handlers, zend_get_std_object_handlers(), sizeof(zend_object_handlers));
 	lua_object_handlers.offset = XtOffsetOf(php_lua_object, obj);
+	lua_object_handlers.dtor_obj = php_lua_dtor_object;
 	lua_object_handlers.free_obj = php_lua_free_object;
 	lua_object_handlers.clone_obj = NULL;
 	lua_object_handlers.write_property = php_lua_write_property;

@@ -33,6 +33,7 @@ for ($i = 0; $i < 100; ++$i) {
     //printf("Mem at end of loop (real): %d (%d)\n", memory_get_usage(), memory_get_usage(true));
 }
 
+unset($luas);
 
 printf("Mem at end of test (real):   %d (%d)\n", memory_get_usage(), memory_get_usage(true)); // foo
 printf("Increase: %d\n", memory_get_usage() - $start);
