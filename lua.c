@@ -211,7 +211,8 @@ zend_object *php_lua_create_object(zend_class_entry *ce)
 
 	lua_atpanic(L, php_lua_atpanic);
 
-	intern = ecalloc(1, sizeof(php_lua_object) + zend_object_properties_size(ce));
+	intern = ecalloc(1, sizeof(php_lua_object));
+
 	intern->L = L;
 
 	ALLOC_HASHTABLE(intern->callbacks);
