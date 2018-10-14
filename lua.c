@@ -170,11 +170,6 @@ static void * php_lua_alloc_function(void *ud, void *ptr, size_t osize, size_t n
 }
 /* }}} */
 
-static void php_lua_dtor_object(zend_object *object) /* {{{ */ {
-	php_lua_object *lua_obj = php_lua_obj_from_obj(object);
-}
-/* }}} */
-
 static void php_lua_free_object(zend_object *object) /* {{{ */ {
 	php_lua_object *lua_obj = php_lua_obj_from_obj(object);
 
@@ -188,7 +183,7 @@ static void php_lua_free_object(zend_object *object) /* {{{ */ {
 		lua_close(lua_obj->L);
 	}
 
-	zend_object_std_dtor(&(lua_obj->obj));
+	zend_object_std_dtor(&lua_obj->obj);
 }
 /* }}} */
 
@@ -829,7 +824,6 @@ PHP_MINIT_FUNCTION(lua) {
 	lua_ce->create_object = php_lua_create_object;
 	memcpy(&lua_object_handlers, zend_get_std_object_handlers(), sizeof(zend_object_handlers));
 	lua_object_handlers.offset = XtOffsetOf(php_lua_object, obj);
-	lua_object_handlers.dtor_obj = php_lua_dtor_object;
 	lua_object_handlers.free_obj = php_lua_free_object;
 	lua_object_handlers.clone_obj = NULL;
 	lua_object_handlers.write_property = php_lua_write_property;
