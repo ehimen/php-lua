@@ -2,15 +2,22 @@ FROM alpine
 
 RUN apk add curl
 
+RUN apk add \
+    g++ \
+    make \
+    autoconf \
+    gdb \
+    lua-dev
+
+ENV php_ver 7.1.22
+
 WORKDIR /php
 
-RUN curl -Ss http://uk1.php.net/distributions/php-7.1.22.tar.bz2 > php-7.1.22.tar.bz2
+RUN curl -Ss http://uk1.php.net/distributions/php-${php_ver}.tar.bz2 > php.tar.bz2
 
-RUN tar -xf php-7.1.22.tar.bz2
+RUN tar -xf php.tar.bz2
 
-RUN apk add g++ make autoconf
-
-WORKDIR /php/php-7.1.22
+WORKDIR /php/php-${php_ver}
 
 RUN ./configure \
     --disable-libxml \
@@ -25,13 +32,6 @@ RUN ./configure \
 RUN make
 
 RUN make install
-
-RUN apk add \
-    autoconf \
-    g++ \
-    make \
-    gdb \
-    lua-dev
 
 COPY ./ /src
 
