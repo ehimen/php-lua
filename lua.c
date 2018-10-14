@@ -172,15 +172,11 @@ static void * php_lua_alloc_function(void *ud, void *ptr, size_t osize, size_t n
 
 static void php_lua_dtor_object(zend_object *object) /* {{{ */ {
 	php_lua_object *lua_obj = php_lua_obj_from_obj(object);
-
-	zend_object_std_dtor(&(lua_obj->obj));
 }
 /* }}} */
 
 static void php_lua_free_object(zend_object *object) /* {{{ */ {
 	php_lua_object *lua_obj = php_lua_obj_from_obj(object);
-
-	zval *val;
 
 	zend_hash_destroy(lua_obj->callbacks);
 	FREE_HASHTABLE(lua_obj->callbacks);
@@ -192,7 +188,7 @@ static void php_lua_free_object(zend_object *object) /* {{{ */ {
 		lua_close(lua_obj->L);
 	}
 
-	efree(lua_obj);
+	zend_object_std_dtor(&(lua_obj->obj));
 }
 /* }}} */
 
@@ -207,7 +203,7 @@ zend_object *php_lua_create_object(zend_class_entry *ce)
 
 	lua_atpanic(L, php_lua_atpanic);
 
-	intern = ecalloc(1, sizeof(php_lua_object));
+	intern = ecalloc(1, sizeof(php_lua_object) + zend_object_properties_size(ce));
 
 	intern->L = L;
 
@@ -254,18 +250,17 @@ zval *php_lua_read_property(zval *object, zval *member, int type, void **cache_s
 /** {{{ static void php_lua_write_property(zval *object, zval *member, zval *value, void ** key)
 */
 static void php_lua_write_property(zval *object, zval *member, zval *value, void ** key) {
-    php_lua_object *lua_obj = Z_LUAVAL_P(object);
-	lua_State *L = lua_obj->L;
+	php_lua_object *lua_obj = Z_LUAVAL_P(object);
 	zend_string *str_member = zval_get_string(member);
 
 #if (LUA_VERSION_NUM < 502)
-	php_lua_send_zval_to_lua(L, member, lua_obj);
-	php_lua_send_zval_to_lua(L, value, lua_obj);
+	php_lua_send_zval_to_lua(lua_obj, member);
+	php_lua_send_zval_to_lua(lua_obj, value);
 
-	lua_settable(L, LUA_GLOBALSINDEX);
+	lua_settable(lua_obj->L, LUA_GLOBALSINDEX);
 #else
-	php_lua_send_zval_to_lua(L, value, lua_obj);
-	lua_setglobal(L, Z_STRVAL_P(member));
+	php_lua_send_zval_to_lua(lua_obj, value);
+	lua_setglobal(lua_obj->L, Z_STRVAL_P(member));
 #endif
 
 	zend_string_release(str_member);
@@ -295,12 +290,13 @@ static int php_lua_call_callback(lua_State *L) {
 		}
 
 		call_user_function(EG(function_table), NULL, func, &retval, arg_num, params);
-		php_lua_send_zval_to_lua(L, &retval, lua_obj);
+		php_lua_send_zval_to_lua(lua_obj, &retval);
 
 		for (i = 0; i<arg_num; i++) {
 			zval_ptr_dtor(&params[i]);
 			
 		}
+
 		efree(params);
 		zval_ptr_dtor(&retval);
 		return 1;
@@ -393,7 +389,8 @@ zval *php_lua_get_zval_from_lua(lua_State *L, int index, zval *lua_obj, zval *rv
 }
 /* }}} */
 
-int php_lua_send_zval_to_lua(lua_State *L, zval *val, php_lua_object *lua_obj) /* {{{ */ {
+int php_lua_send_zval_to_lua(php_lua_object *lua_obj, zval *val) /* {{{ */ {
+	lua_State *L = lua_obj->L;
 
 try_again:
 	switch (Z_TYPE_P(val)) {
@@ -456,8 +453,8 @@ try_again:
 						} else {
 							ZVAL_LONG(&zkey, longkey);
 						}
-						php_lua_send_zval_to_lua(L, &zkey, lua_obj);
-						php_lua_send_zval_to_lua(L, v, lua_obj);
+						php_lua_send_zval_to_lua(lua_obj, &zkey);
+						php_lua_send_zval_to_lua(lua_obj, v);
 						lua_settable(L, -3);
 					} ZEND_HASH_FOREACH_END();
 
@@ -491,7 +488,7 @@ static int php_lua_arg_apply_func(void *data, int num_args, va_list args) {
 	lua_State *L = va_arg(args, lua_State*);
 	php_lua_object *lua_obj = va_arg(args, php_lua_object*);
 
-	php_lua_send_zval_to_lua(L, (zval*)data, (php_lua_object*)lua_obj);
+	php_lua_send_zval_to_lua((php_lua_object*)lua_obj, (zval*)data);
 
 	return ZEND_HASH_APPLY_KEEP;
 } /* }}} */
@@ -719,7 +716,7 @@ PHP_METHOD(lua, assign) {
 	lua_obj = Z_LUAVAL_P(getThis());
 	L = lua_obj->L;
 
-	php_lua_send_zval_to_lua(L, value, lua_obj);
+	php_lua_send_zval_to_lua(lua_obj, value);
 #if (LUA_VERSION_NUM < 502)
 	lua_setfield(L, LUA_GLOBALSINDEX, Z_STRVAL_P(name));
 #else

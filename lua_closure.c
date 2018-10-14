@@ -102,7 +102,7 @@ PHP_METHOD(lua_closure, invoke) {
 	if (ZEND_NUM_ARGS()) {
 		int i = 0;
 		for(;i<ZEND_NUM_ARGS();i++) {
-			php_lua_send_zval_to_lua(L, &arguments[i], Z_LUAVAL(objval->lua));
+			php_lua_send_zval_to_lua(Z_LUAVAL(objval->lua), &arguments[i]);
 		}
 	}
 
