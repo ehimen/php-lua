@@ -764,7 +764,7 @@ PHP_METHOD(lua, registerCallback) {
 	// for future access as an upvalue in php_lua_call_callback.
 	Z_TRY_ADDREF_P(func);
 
-	// Refcount decrement a hash entry if we're overriding it.
+	// Refcount decrement a hash entry if we're overwriting it.
 	if (zend_hash_exists(lua_obj->callbacks, name)) {
 		zval *existing = zend_hash_find(lua_obj->callbacks, name);
 		zval_ptr_dtor(existing);
