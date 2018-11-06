@@ -11,7 +11,7 @@ RUN apk add \
 
 ### Build PHP ###
 
-ENV php_ver 7.1.22
+ARG php_ver=7.1.22
 
 WORKDIR /php
 
@@ -37,7 +37,7 @@ RUN make install
 
 ### Build LUA ###
 
-ENV lua_ver 5.3.5
+ARG lua_ver=5.3.5
 
 WORKDIR /lua
 
@@ -47,12 +47,18 @@ RUN tar -xf lua.tar.gz
 
 WORKDIR /lua/lua-${lua_ver}
 
-# Compile with -fPIC to ensure PHP LUA extension can compile against this version of LUA.
-RUN sed -i s/MYCFLAGS=/MYCFLAGS=-fPIC/ src/Makefile
+RUN apk add ncurses-dev
 
-RUN make linux test
+WORKDIR /lua/lua-${lua_ver}/src
 
-RUN make local
+# Manually run the src make file as struggling to control MYCFLAGS value.
+RUN make all MYCFLAGS="-DLUA_USE_LINUX -fPIC" MYLIBS="-Wl,-E -ldl -lreadline -lhistory -lncurses"
+
+WORKDIR /lua/lua-${lua_ver}
+
+RUN make test
+
+RUN make local INSTALL_TOP=/lua/lua-${lua_ver}/install
 
 ### Build PHP LUA extension ###
 
@@ -69,7 +75,5 @@ RUN make
 RUN make install
 
 RUN echo "extension=lua.so" > /usr/local/lib/php.ini
-
-#RUN apk add valgrind
 
 CMD php -m

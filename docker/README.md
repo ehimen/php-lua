@@ -7,7 +7,7 @@ Provided is a docker file which will compile & install the LUA extension for PHP
 To build:
 
 ```sh
-$ docker build -t php-lua -f docker/Dockerfile .
+$ docker build -t php-lua -f docker/Dockerfile --build-arg php_ver=7.1.22 --build-arg lua_ver=5.3.5 .
 ```
 
 To run:
